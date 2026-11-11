@@ -1,0 +1,1168 @@
+import { Button, ScrollView, Slider, LineEdit } from "std-widgets.slint";
+
+export struct ControllerInfo {
+    id: int,
+    name: string,
+    uuid: string,
+    power_status: string,
+    layout: string,
+    artwork: string,
+    ff_supported: bool,
+    manufacturer: string,
+    vid_pid: string,
+    firmware: string,
+    release_number: string,
+    interface_number: string,
+    serial: string,
+    device_class: string,
+    family: string,
+    transport: string,
+    hid_usage: string,
+    hid_path: string,
+    backend: string,
+    input_available: bool,
+}
+
+component Panel inherits Rectangle {
+    background: #161b22;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: #30363d;
+}
+
+component ToolButton inherits Rectangle {
+    in property <string> text;
+    in property <string> subtext;
+    in property <bool> active: false;
+    callback clicked();
+    width: 94px;
+    height: 44px;
+    border-radius: 8px;
+    background: active ? #26384a : (touch.pressed ? #242b34 : #1b2027);
+    border-width: 1px;
+    border-color: active ? #61afef : #30363d;
+    touch := TouchArea { clicked => { root.clicked(); } }
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        Text { text: root.text; color: root.active ? #ffffff : #c7d0db; font-size: 10px; font-weight: 800; horizontal-alignment: center; }
+        Text { text: root.subtext; color: #6f7b8b; font-size: 8px; horizontal-alignment: center; }
+    }
+}
+
+component MetricRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 24px;
+    HorizontalLayout {
+        Text { text: root.label; color: #7f8998; font-size: 10px; font-weight: 700; horizontal-stretch: 1; vertical-alignment: center; }
+        Text { text: root.value; color: #dce2ea; font-size: 10px; font-weight: 700; vertical-alignment: center; }
+    }
+}
+
+component PercentMetric inherits Rectangle {
+    in property <string> label;
+    in property <float> value;
+    in property <color> accent: #61afef;
+    height: 50px;
+    VerticalLayout {
+        spacing: 5px;
+        HorizontalLayout {
+            Text { text: root.label; color: #8b949e; font-size: 10px; horizontal-stretch: 1; }
+            Text { text: (Math.round(root.value * 10000) / 100) + "%"; color: root.accent; font-size: 11px; font-weight: 800; }
+        }
+        Rectangle {
+            height: 6px; background: #242b34; border-radius: 3px;
+            Rectangle { width: parent.width * clamp(0, root.value, 1); height: parent.height; border-radius: 3px; background: root.accent; }
+        }
+    }
+}
+
+component StickPad inherits Rectangle {
+    in property <string> title;
+    in property <float> x_value;
+    in property <float> y_value;
+    in property <float> metric;
+    in property <string> metric_label: "Deviation";
+    in property <bool> metric_is_percent: false;
+    width: 180px;
+    height: root.width + 50px;
+    background: transparent;
+
+    Text {
+        x: 0px; y: 0px; width: parent.width; height: 18px;
+        text: root.title; color: #ffffff; font-size: 11px; font-weight: 800;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+
+    pad := Rectangle {
+        x: 0px; y: 22px; width: parent.width; height: parent.width;
+        border-radius: parent.width / 2;
+        border-width: 1px;
+        border-color: #3b4450;
+        background: #11161c;
+
+        Rectangle { x: parent.width / 2; y: 10px; width: 1px; height: parent.height - 20px; background: #29313a; }
+        Rectangle { x: 10px; y: parent.height / 2; width: parent.width - 20px; height: 1px; background: #29313a; }
+        Rectangle {
+            width: 18px; height: 18px; border-radius: 9px; background: #10b981;
+            x: parent.width / 2 - 9px + (parent.width / 2 - 12px) * clamp(-1, root.x_value, 1);
+            y: parent.height / 2 - 9px - (parent.height / 2 - 12px) * clamp(-1, root.y_value, 1);
+        }
+    }
+
+    Text {
+        x: 0px; y: root.width + 28px; width: parent.width; height: 18px;
+        text: root.metric_label + ": " + (root.metric_is_percent ? (Math.round(root.metric * 100) / 100) + "%" : Math.round(root.metric * 1000) / 1000);
+        color: #e5c07b; font-size: 10px; font-weight: 700;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+}
+
+component AxisBar inherits Rectangle {
+    in property <string> label;
+    in property <float> value;
+    width: 62px;
+    height: 158px;
+    background: transparent;
+
+    bar := Rectangle {
+        x: 0px; y: 0px; width: parent.width; height: 130px;
+        background: #11161c; border-radius: 10px; border-width: 1px; border-color: #30363d;
+        Rectangle {
+            x: 2px; width: parent.width - 4px; border-radius: 8px;
+            height: (parent.height - 4px) * Math.abs(clamp(-1, root.value, 1));
+            y: parent.height - self.height - 2px;
+            background: root.value < 0 ? #e06c75 : #8b5cf6;
+        }
+        Text {
+            y: parent.height - 24px; width: parent.width; height: 18px;
+            text: Math.round(root.value * 100) / 100; color: #ffffff; font-size: 10px; font-weight: 800;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+    }
+    Text {
+        x: 0px; y: 138px; width: parent.width; height: 18px;
+        text: root.label; color: #abb2bf; font-size: 10px; font-weight: 700;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+}
+
+component MappingRow inherits Rectangle {
+    in property <string> label;
+    in-out property <string> key_value;
+    height: 34px;
+    HorizontalLayout {
+        spacing: 10px;
+        Text { width: 120px; text: root.label; color: #b8c2cf; font-size: 10px; font-weight: 700; vertical-alignment: center; }
+        LineEdit { text <=> root.key_value; horizontal-stretch: 1; }
+    }
+}
+
+component PreviewButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> pressed: false;
+    in property <bool> has_icon: false;
+    in property <image> icon;
+    width: 34px;
+    height: 28px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: root.pressed ? #61afef : #39424d;
+    background: root.pressed ? #2c6f9f : #171d24;
+    Text {
+        text: root.label;
+        color: root.pressed ? #ffffff : #aeb8c6;
+        font-size: 8px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        visible: !root.has_icon;
+    }
+    Image {
+        x: 6px; y: 4px; width: parent.width - 12px; height: parent.height - 8px;
+        source: root.icon;
+        image-fit: contain;
+        visible: root.has_icon;
+    }
+}
+
+component SemanticAxisRow inherits Rectangle {
+    in property <string> label;
+    in property <float> value;
+    height: 22px;
+    HorizontalLayout {
+        spacing: 8px;
+        Text { width: 92px; text: root.label; color: #8b949e; font-size: 9px; overflow: elide; }
+        Rectangle {
+            height: 6px; background: #242b34; border-radius: 3px; horizontal-stretch: 1;
+            Rectangle {
+                x: root.value < 0 ? parent.width / 2 - parent.width / 2 * Math.abs(root.value) : parent.width / 2;
+                width: parent.width / 2 * Math.abs(root.value); height: parent.height; border-radius: 3px; background: #10b981;
+            }
+            Rectangle { x: parent.width / 2; width: 1px; height: parent.height; background: #66717f; }
+        }
+        Text { width: 42px; text: Math.round(root.value * 100) / 100; color: #dce2ea; font-size: 9px; horizontal-alignment: right; }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "IBBE Controller Manager 0.5.2";
+    width: 1440px;
+    height: 900px;
+    background: #0d1117;
+
+    in-out property <[ControllerInfo]> controllers: [];
+    in-out property <int> active_id: -1;
+    in-out property <ControllerInfo> active_info;
+    in-out property <float> axis_lx: 0;
+    in-out property <float> axis_ly: 0;
+    in-out property <float> axis_rx: 0;
+    in-out property <float> axis_ry: 0;
+    in-out property <float> l_deviation: 0;
+    in-out property <float> r_deviation: 0;
+    in-out property <float> trigger_l2: 0;
+    in-out property <float> trigger_r2: 0;
+    in-out property <[float]> raw_axes: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    in-out property <[bool]> raw_buttons: [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false];
+    in-out property <[string]> semantic_axis_names: [];
+    in-out property <[float]> semantic_axis_values: [];
+    in-out property <string> current_hz: "Idle";
+    in-out property <string> backend_status: "Initializing";
+    in-out property <string> raw_hid_report: "";
+    in-out property <string> raw_input_status: "WM_INPUT initializing";
+    in-out property <string> raw_input_report: "";
+    in-out property <string> vendor_protocol: "";
+    in-out property <string> battery_text: "Not exposed";
+    in-out property <string> firmware_detail: "";
+    in-out property <int> gyro_x: 0; in-out property <int> gyro_y: 0; in-out property <int> gyro_z: 0;
+    in-out property <int> accel_x: 0; in-out property <int> accel_y: 0; in-out property <int> accel_z: 0;
+    in-out property <float> gyro_dps_x: 0; in-out property <float> gyro_dps_y: 0; in-out property <float> gyro_dps_z: 0;
+    in-out property <float> accel_g_x: 0; in-out property <float> accel_g_y: 0; in-out property <float> accel_g_z: 0;
+    in-out property <string> motion_units: "Raw units only";
+    in-out property <string> power_source: "Not exposed";
+    in-out property <bool> motion_available: false;
+    in-out property <string> touch1_text: "Inactive";
+    in-out property <string> touch2_text: "Inactive";
+    in-out property <bool> touch_active: false;
+    in-out property <bool> wheel_available: false;
+    in-out property <float> wheel_raw: 0;
+    in-out property <float> wheel_angle_deg: 0;
+    in-out property <float> wheel_rotation_deg: 900;
+    in-out property <float> wheel_observed_min: 0;
+    in-out property <float> wheel_observed_max: 0;
+    in-out property <string> wheel_source: "No steering axis";
+    in-out property <bool> adaptive_trigger_available: false;
+    in-out property <bool> nintendo_rumble_available: false;
+    in-out property <string> vendor_control_status: "No vendor output protocol active";
+    in-out property <string> renderer_status: "AUTO 2D • GPU → CPU fallback";
+    in-out property <string> renderer_preference: "auto";
+    in-out property <float> poll_avg_hz: 0;
+    in-out property <int> poll_min_hz: 0;
+    in-out property <int> poll_max_hz: 0;
+    in-out property <float> poll_interval_ms: 0;
+    in-out property <float> poll_jitter_ms: 0;
+    in-out property <string> poll_total_events: "0";
+    in-out property <[float]> poll_history: [];
+    in-out property <float> trigger_l_min: 0;
+    in-out property <float> trigger_l_max: 0;
+    in-out property <float> trigger_l_travel: 0;
+    in-out property <float> trigger_r_min: 0;
+    in-out property <float> trigger_r_max: 0;
+    in-out property <float> trigger_r_travel: 0;
+    in-out property <string> trigger_samples: "0";
+    in-out property <string> input_pressed: "None";
+    in-out property <string> input_axes_summary: "No input";
+    in-out property <bool> raw_capture_paused: false;
+    in-out property <string> export_status: "Diagnostics have not been exported yet";
+
+    in-out property <float> l_center_offset: 0;
+    in-out property <float> l_noise: 0;
+    in-out property <float> l_peak_drift: 0;
+    in-out property <float> l_recommended_dz: 0;
+    in-out property <float> r_center_offset: 0;
+    in-out property <float> r_noise: 0;
+    in-out property <float> r_peak_drift: 0;
+    in-out property <float> r_recommended_dz: 0;
+
+    in-out property <float> l_circ_error: 0;
+    in-out property <float> r_circ_error: 0;
+    in-out property <float> l_circ_max: 0;
+    in-out property <float> r_circ_max: 0;
+    in-out property <float> l_q1: 0; in-out property <float> l_q2: 0; in-out property <float> l_q3: 0; in-out property <float> l_q4: 0;
+    in-out property <float> r_q1: 0; in-out property <float> r_q2: 0; in-out property <float> r_q3: 0; in-out property <float> r_q4: 0;
+
+    in-out property <int> calib_state: 0;
+    in-out property <bool> calib_saved: false;
+    in-out property <string> calib_summary: "No calibration samples yet";
+    in-out property <bool> joykey_enabled: false;
+    in-out property <string> joy_process: "game.exe";
+    in-out property <string> joy_south: "SPACE";
+    in-out property <string> joy_east: "ESC";
+    in-out property <string> joy_west: "";
+    in-out property <string> joy_north: "";
+    in-out property <string> joy_lb: "";
+    in-out property <string> joy_rb: "";
+    in-out property <string> joy_lt: "";
+    in-out property <string> joy_rt: "";
+    in-out property <string> joy_guide: "";
+    in-out property <string> joy_lthumb: "";
+    in-out property <string> joy_rthumb: "";
+    in-out property <string> joy_touchpad: "";
+    in-out property <string> joy_start: "ENTER";
+    in-out property <string> joy_select: "";
+    in-out property <string> joy_dpad_up: "UP";
+    in-out property <string> joy_dpad_down: "DOWN";
+    in-out property <string> joy_dpad_left: "LEFT";
+    in-out property <string> joy_dpad_right: "RIGHT";
+    in-out property <string> joy_b1: ""; in-out property <string> joy_b2: "";
+    in-out property <string> joy_b3: ""; in-out property <string> joy_b4: "";
+    in-out property <string> joy_b5: ""; in-out property <string> joy_b6: "";
+    in-out property <string> joy_b7: ""; in-out property <string> joy_b8: "";
+    in-out property <[string]> joy_profiles: [];
+    in-out property <string> joy_status: "Registry-backed per-process profile";
+
+    property <int> active_view: 0;
+    property <float> adv_l: 50;
+    property <float> adv_r: 50;
+    property <float> adv_duration: 1000;
+    property <int> adaptive_side: 2;
+    property <float> adaptive_start: 25;
+    property <float> adaptive_end: 70;
+    property <float> adaptive_strength: 70;
+    property <float> adaptive_frequency: 110;
+    property <int> nintendo_rumble_side: 2;
+    property <float> nintendo_rumble_low_hz: 160;
+    property <float> nintendo_rumble_high_hz: 320;
+    property <float> nintendo_rumble_amp: 35;
+
+    callback refresh_devices();
+    callback select_device(int);
+    callback run_tool(string);
+    callback test_vibration(int);
+    callback test_adv_vibration(float, float, float);
+    callback stop_vibration();
+    callback set_adaptive_trigger(int, int, float, float, float, float);
+    callback stop_adaptive_triggers();
+    callback set_nintendo_rumble(int, float, float, float);
+    callback stop_nintendo_rumble();
+    callback next_calibration_step();
+    callback set_joykey_enabled(bool);
+    callback load_joy_profile(string);
+    callback save_joy_profile(string);
+    callback delete_joy_profile(string);
+    callback refresh_joy_profiles();
+    callback set_wheel_rotation(float);
+    callback center_wheel();
+    callback reset_wheel_range();
+    callback set_raw_capture_paused(bool);
+    callback set_renderer_preference(string);
+    callback export_diagnostics();
+
+    HorizontalLayout {
+        padding: 20px;
+        spacing: 20px;
+
+        VerticalLayout {
+            width: 340px;
+            spacing: 14px;
+            Panel {
+                vertical-stretch: 3;
+                VerticalLayout {
+                    padding: 14px; spacing: 12px;
+                    HorizontalLayout {
+                        Text { text: "Connected Devices"; color: #ffffff; font-size: 16px; font-weight: 800; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: "Scan"; clicked => { root.refresh_devices(); } }
+                    }
+                    ScrollView {
+                        VerticalLayout {
+                            spacing: 8px;
+                            for ctrl in root.controllers: Rectangle {
+                                height: 82px; border-radius: 9px; border-width: 1px;
+                                background: root.active_id == ctrl.id ? #233245 : #1b2027;
+                                border-color: root.active_id == ctrl.id ? #61afef : #30363d;
+                                TouchArea { clicked => { root.active_id = ctrl.id; root.active_info = ctrl; root.select_device(ctrl.id); } }
+                                VerticalLayout {
+                                    padding: 10px; spacing: 3px;
+                                    Text { text: ctrl.name; color: #ffffff; font-size: 11px; font-weight: 800; overflow: elide; }
+                                    HorizontalLayout {
+                                        Text { text: ctrl.device_class + "  •  " + ctrl.transport; color: #8b949e; font-size: 9px; horizontal-stretch: 1; }
+                                        Text { text: ctrl.power_status; color: #10b981; font-size: 9px; }
+                                    }
+                                    Text { text: ctrl.vid_pid + "  " + ctrl.manufacturer; color: #66717f; font-size: 9px; overflow: elide; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Panel {
+                vertical-stretch: 2;
+                VerticalLayout {
+                    padding: 14px; spacing: 5px;
+                    Text { text: "Device Information"; color: #e5c07b; font-size: 13px; font-weight: 800; }
+                    MetricRow { label: "CLASS"; value: root.active_id >= 0 ? root.active_info.device_class : "N/A"; }
+                    MetricRow { label: "FAMILY"; value: root.active_id >= 0 ? root.active_info.family : "N/A"; }
+                    MetricRow { label: "MANUFACTURER"; value: root.active_id >= 0 ? root.active_info.manufacturer : "N/A"; }
+                    MetricRow { label: "VID:PID"; value: root.active_id >= 0 ? root.active_info.vid_pid : "N/A"; }
+                    MetricRow { label: "TRANSPORT"; value: root.active_id >= 0 ? root.active_info.transport : "N/A"; }
+                    MetricRow { label: "FIRMWARE/RELEASE"; value: root.active_id >= 0 ? root.active_info.firmware : "N/A"; }
+                    MetricRow { label: "HID RELEASE"; value: root.active_id >= 0 ? root.active_info.release_number : "N/A"; }
+                    MetricRow { label: "HID INTERFACE"; value: root.active_id >= 0 ? root.active_info.interface_number : "N/A"; }
+                    MetricRow { label: "SERIAL"; value: root.active_id >= 0 ? root.active_info.serial : "N/A"; }
+                    MetricRow { label: "HID USAGE"; value: root.active_id >= 0 ? root.active_info.hid_usage : "N/A"; }
+                    MetricRow { label: "BACKEND"; value: root.active_id >= 0 ? root.active_info.backend : "N/A"; }
+                    MetricRow { label: "EVENT RATE"; value: root.current_hz; }
+                    MetricRow { label: "LIVE POWER"; value: root.battery_text; }
+                    Text { text: root.backend_status; color: #61afef; font-size: 9px; wrap: word-wrap; }
+                }
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 14px;
+
+            if root.active_view == 0: VerticalLayout {
+                spacing: 14px;
+                HorizontalLayout {
+                    spacing: 14px; height: 285px;
+                    Panel {
+                        width: 390px;
+                        VerticalLayout {
+                            padding: 14px; spacing: 10px;
+                            Text { text: "Live Analog Input"; color: #10b981; font-size: 14px; font-weight: 800; }
+                            HorizontalLayout {
+                                alignment: center; spacing: 18px; vertical-stretch: 1;
+                                StickPad { width: 145px; title: "LEFT STICK"; x_value: root.axis_lx; y_value: root.axis_ly; metric: root.l_deviation; }
+                                StickPad { width: 145px; title: "RIGHT STICK"; x_value: root.axis_rx; y_value: root.axis_ry; metric: root.r_deviation; }
+                            }
+                        }
+                    }
+                    Panel {
+                        width: 150px;
+                        VerticalLayout {
+                            padding: 14px; spacing: 10px;
+                            Text { text: "Triggers"; color: #8b5cf6; font-size: 14px; font-weight: 800; }
+                            HorizontalLayout {
+                                alignment: center; spacing: 10px; vertical-stretch: 1;
+                                AxisBar { label: "LT / L2"; value: root.trigger_l2; }
+                                AxisBar { label: "RT / R2"; value: root.trigger_r2; }
+                            }
+                        }
+                    }
+                    Panel {
+                        horizontal-stretch: 1;
+                        clip: true;
+                        VerticalLayout {
+                            padding: 12px; spacing: 6px;
+                            HorizontalLayout {
+                                Text { text: root.active_id >= 0 && (root.active_info.device_class == "Gamepad" || root.active_info.device_class == "Arcade / Fight Stick") ? "Controller Preview" : "Simulation Preview"; color: #e5c07b; font-size: 13px; font-weight: 800; horizontal-stretch: 1; }
+                                Text { text: root.active_id >= 0 ? root.active_info.layout : "generic"; color: #768396; font-size: 8px; }
+                            }
+                            if root.active_id >= 0: Rectangle {
+                                height: 52px; background: transparent;
+                                if root.active_info.artwork == "xbox": Image { width: parent.width; height: parent.height; source: @image-url("../assets/models/xbox-controller.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "playstation": Image { width: parent.width; height: parent.height; source: @image-url("../assets/models/playstation-controller.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "nintendo": Image { width: parent.width; height: parent.height; source: @image-url("../assets/models/nintendo-pro-controller.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "steam": Image { width: parent.width; height: parent.height; source: @image-url("../assets/models/steam-controller.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "wheel": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/wheel.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "hotas": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/hotas.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "pedals": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/pedals.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "arcade": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/arcade.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "panel": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/panel.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "simulation": Image { width: parent.width; height: parent.height; source: @image-url("../assets/dark/simulation.svg"); image-fit: contain; }
+                                if root.active_info.artwork == "generic": Image { width: parent.width; height: parent.height; source: @image-url("../assets/models/generic-controller.svg"); image-fit: contain; }
+                            }
+                            if root.active_id >= 0 && (root.active_info.device_class == "Gamepad" || root.active_info.device_class == "Arcade / Fight Stick"): VerticalLayout {
+                                spacing: 4px;
+                                HorizontalLayout { alignment: center; spacing: 4px;
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/lb.svg"); label: "LB"; pressed: root.raw_buttons[4]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "L1" : root.active_info.layout == "nintendo" ? "L" : "LB"; pressed: root.raw_buttons[4]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/lt.svg"); label: "LT"; pressed: root.raw_buttons[15]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "L2" : root.active_info.layout == "nintendo" ? "ZL" : "LT"; pressed: root.raw_buttons[15]; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/rt.svg"); label: "RT"; pressed: root.raw_buttons[16]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "R2" : root.active_info.layout == "nintendo" ? "ZR" : "RT"; pressed: root.raw_buttons[16]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/rb.svg"); label: "RB"; pressed: root.raw_buttons[5]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "R1" : root.active_info.layout == "nintendo" ? "R" : "RB"; pressed: root.raw_buttons[5]; }
+                                }
+                                HorizontalLayout { alignment: center; spacing: 4px;
+                                    PreviewButton { label: "↑"; pressed: root.raw_buttons[10]; }
+                                    PreviewButton { label: "←"; pressed: root.raw_buttons[13]; }
+                                    PreviewButton { label: "↓"; pressed: root.raw_buttons[12]; }
+                                    PreviewButton { label: "→"; pressed: root.raw_buttons[11]; }
+                                }
+                                HorizontalLayout { alignment: center; spacing: 4px;
+                                    if root.active_info.layout == "xbox": PreviewButton { label: "View"; pressed: root.raw_buttons[6]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "Share" : root.active_info.layout == "nintendo" ? "−" : "View"; pressed: root.raw_buttons[6]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/guide.svg"); label: "Guide"; pressed: root.raw_buttons[14]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "PS" : root.active_info.layout == "nintendo" ? "Home" : "Guide"; pressed: root.raw_buttons[14]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/menu.svg"); label: "Menu"; pressed: root.raw_buttons[7]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "Options" : root.active_info.layout == "nintendo" ? "+" : "Menu"; pressed: root.raw_buttons[7]; }
+                                }
+                                HorizontalLayout { alignment: center; spacing: 4px;
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/ls.svg"); label: "LS"; pressed: root.raw_buttons[8]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "L3" : root.active_info.layout == "nintendo" ? "L-Stick" : "LS"; pressed: root.raw_buttons[8]; }
+                                    if root.active_info.layout == "playstation": PreviewButton { label: "Touch"; pressed: root.raw_buttons[17]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/rs.svg"); label: "RS"; pressed: root.raw_buttons[9]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "R3" : root.active_info.layout == "nintendo" ? "R-Stick" : "RS"; pressed: root.raw_buttons[9]; }
+                                }
+                                HorizontalLayout { alignment: center; spacing: 4px;
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/x.svg"); label: "X"; pressed: root.raw_buttons[2]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "□" : root.active_info.layout == "nintendo" ? "Y" : "X"; pressed: root.raw_buttons[2]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/a.svg"); label: "A"; pressed: root.raw_buttons[0]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "×" : root.active_info.layout == "nintendo" ? "B" : "A"; pressed: root.raw_buttons[0]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/b.svg"); label: "B"; pressed: root.raw_buttons[1]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "○" : root.active_info.layout == "nintendo" ? "A" : "B"; pressed: root.raw_buttons[1]; }
+                                    if root.active_info.layout == "xbox": PreviewButton { has_icon: true; icon: @image-url("../assets/buttons/xbox/y.svg"); label: "Y"; pressed: root.raw_buttons[3]; }
+                                    if root.active_info.layout != "xbox": PreviewButton { label: root.active_info.layout == "playstation" ? "△" : root.active_info.layout == "nintendo" ? "X" : "Y"; pressed: root.raw_buttons[3]; }
+                                }
+                            }
+                            if root.active_id >= 0 && root.active_info.device_class != "Gamepad" && root.active_info.device_class != "Arcade / Fight Stick": VerticalLayout {
+                                spacing: 6px;
+                                HorizontalLayout { spacing: 5px;
+                                    for i in 4: PreviewButton { label: "B" + (i + 1); pressed: root.raw_buttons[18 + i]; }
+                                }
+                                HorizontalLayout { spacing: 5px;
+                                    for i in 4: PreviewButton { label: "B" + (i + 5); pressed: root.raw_buttons[22 + i]; }
+                                }
+                                for axis[index] in root.semantic_axis_names: SemanticAxisRow { label: axis; value: root.semantic_axis_values[index]; }
+                            }
+                        }
+                    }
+                }
+                Panel {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: 16px; spacing: 12px;
+                        HorizontalLayout {
+                            Text { text: "Raw Input Snapshot"; color: #61afef; font-size: 14px; font-weight: 800; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text { text: "layout: " + (root.active_id >= 0 ? root.active_info.layout : "unknown"); color: #65717e; font-size: 9px; }
+                        }
+                        HorizontalLayout {
+                            spacing: 24px;
+                            VerticalLayout {
+                                width: 360px; spacing: 6px;
+                                for i in 16: HorizontalLayout {
+                                    Text { width: 52px; text: "Axis " + i; color: #8b949e; font-size: 9px; }
+                                    Rectangle {
+                                        height: 8px; background: #242b34; border-radius: 4px; horizontal-stretch: 1;
+                                        Rectangle {
+                                            x: root.raw_axes[i] < 0 ? parent.width / 2 - parent.width / 2 * Math.abs(root.raw_axes[i]) : parent.width / 2;
+                                            width: parent.width / 2 * Math.abs(root.raw_axes[i]); height: parent.height; border-radius: 4px; background: #61afef;
+                                        }
+                                        Rectangle { x: parent.width / 2; width: 1px; height: parent.height; background: #66717f; }
+                                    }
+                                    Text { width: 48px; text: Math.round(root.raw_axes[i] * 1000) / 1000; color: #dce2ea; font-size: 9px; horizontal-alignment: right; }
+                                }
+                            }
+                            VerticalLayout {
+                                spacing: 8px; horizontal-stretch: 1;
+                                Text { text: "Buttons"; color: #8b949e; font-size: 10px; }
+                                for row in 4: HorizontalLayout {
+                                    spacing: 8px;
+                                    for col in 8: Rectangle {
+                                        width: 42px; height: 34px; border-radius: 6px;
+                                        background: root.raw_buttons[row * 8 + col] ? #2c6f9f : #1d232b;
+                                        border-width: 1px; border-color: root.raw_buttons[row * 8 + col] ? #61afef : #30363d;
+                                        Text { text: row * 8 + col; color: root.raw_buttons[row * 8 + col] ? #ffffff : #64707f; font-size: 9px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                Text { text: "Force feedback: " + (root.active_id >= 0 && root.active_info.ff_supported ? "supported" : "not reported"); color: #8b949e; font-size: 10px; }
+                                if root.active_id >= 0 && root.raw_hid_report != "": Text { text: "Raw HID report: " + root.raw_hid_report; color: #e5c07b; font-size: 9px; wrap: word-wrap; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.active_view == 1: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 20px; spacing: 20px;
+                    HorizontalLayout {
+                        VerticalLayout { Text { text: "Stick Drift Diagnostics"; color: #ffffff; font-size: 20px; font-weight: 800; } Text { text: "Center-only rolling analysis; intentional movement is filtered out."; color: #8b949e; font-size: 11px; } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: "Reset Samples"; clicked => { root.run_tool("reset_diag"); } }
+                    }
+                    HorizontalLayout {
+                        spacing: 20px;
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 18px; spacing: 10px;
+                                Text { text: "LEFT STICK"; color: #10b981; font-size: 14px; font-weight: 800; }
+                                PercentMetric { label: "Center offset"; value: root.l_center_offset; accent: #e5c07b; }
+                                PercentMetric { label: "Noise / jitter"; value: root.l_noise; accent: #61afef; }
+                                PercentMetric { label: "Peak center drift"; value: root.l_peak_drift; accent: #e06c75; }
+                                PercentMetric { label: "Recommended deadzone"; value: root.l_recommended_dz; accent: #10b981; }
+                            }
+                        }
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 18px; spacing: 10px;
+                                Text { text: "RIGHT STICK"; color: #10b981; font-size: 14px; font-weight: 800; }
+                                PercentMetric { label: "Center offset"; value: root.r_center_offset; accent: #e5c07b; }
+                                PercentMetric { label: "Noise / jitter"; value: root.r_noise; accent: #61afef; }
+                                PercentMetric { label: "Peak center drift"; value: root.r_peak_drift; accent: #e06c75; }
+                                PercentMetric { label: "Recommended deadzone"; value: root.r_recommended_dz; accent: #10b981; }
+                            }
+                        }
+                    }
+                    Text { text: "Tip: leave both sticks untouched for several seconds to obtain a meaningful center/noise baseline."; color: #6f7b8b; font-size: 10px; }
+                }
+            }
+
+            if root.active_view == 2: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 20px; spacing: 16px;
+                    HorizontalLayout {
+                        height: 54px; alignment: center;
+                        VerticalLayout {
+                            Text { text: "Circularity Test"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                            Text { text: "Rotate each stick slowly around the outer boundary."; color: #8b949e; font-size: 11px; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { width: 72px; height: 34px; text: "Clear"; clicked => { root.run_tool("clear_circ"); } }
+                    }
+                    HorizontalLayout {
+                        height: 276px; alignment: center; spacing: 70px;
+                        StickPad { width: 220px; title: "LEFT"; x_value: root.axis_lx; y_value: root.axis_ly; metric: root.l_circ_error; metric_label: "Average error"; metric_is_percent: true; }
+                        StickPad { width: 220px; title: "RIGHT"; x_value: root.axis_rx; y_value: root.axis_ry; metric: root.r_circ_error; metric_label: "Average error"; metric_is_percent: true; }
+                    }
+                    HorizontalLayout {
+                        height: 145px; spacing: 20px;
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 12px; spacing: 5px; Text { text: "Left stick quadrants"; color: #61afef; font-size: 11px; font-weight: 800; } MetricRow { label: "MAX ERROR"; value: Math.round(root.l_circ_max * 100) / 100 + "%"; } MetricRow { label: "Q1 / Q2"; value: Math.round(root.l_q1*100)/100 + "% / " + Math.round(root.l_q2*100)/100 + "%"; } MetricRow { label: "Q3 / Q4"; value: Math.round(root.l_q3*100)/100 + "% / " + Math.round(root.l_q4*100)/100 + "%"; } } }
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 12px; spacing: 5px; Text { text: "Right stick quadrants"; color: #61afef; font-size: 11px; font-weight: 800; } MetricRow { label: "MAX ERROR"; value: Math.round(root.r_circ_max * 100) / 100 + "%"; } MetricRow { label: "Q1 / Q2"; value: Math.round(root.r_q1*100)/100 + "% / " + Math.round(root.r_q2*100)/100 + "%"; } MetricRow { label: "Q3 / Q4"; value: Math.round(root.r_q3*100)/100 + "% / " + Math.round(root.r_q4*100)/100 + "%"; } } }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                }
+            }
+
+            if root.active_view == 3: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 20px; spacing: 14px;
+                    HorizontalLayout {
+                        Text { text: "Vibration & Adaptive Triggers"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { width: 120px; text: "STOP RUMBLE"; clicked => { root.stop_vibration(); } }
+                    }
+                    HorizontalLayout {
+                        height: 245px; spacing: 22px;
+                        VerticalLayout {
+                            horizontal-stretch: 2; spacing: 10px;
+                            Text { text: "Dual-motor rumble"; color: #10b981; font-size: 13px; font-weight: 800; }
+                            Text { text: "Strong / low-frequency motor"; color: #e06c75; font-size: 10px; }
+                            Slider { minimum: 0; maximum: 100; value: root.adv_l; changed(v) => { root.adv_l = v; } }
+                            Text { text: Math.round(root.adv_l) + "%"; color: #e06c75; font-size: 11px; font-weight: 800; }
+                            Text { text: "Weak / high-frequency motor"; color: #61afef; font-size: 10px; }
+                            Slider { minimum: 0; maximum: 100; value: root.adv_r; changed(v) => { root.adv_r = v; } }
+                            Text { text: Math.round(root.adv_r) + "%"; color: #61afef; font-size: 11px; font-weight: 800; }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Text { text: "Duration " + Math.round(root.adv_duration) + " ms"; color: #abb2bf; font-size: 10px; vertical-alignment: center; }
+                                Slider { horizontal-stretch: 1; minimum: 50; maximum: 5000; value: root.adv_duration; changed(v) => { root.adv_duration = v; } }
+                            }
+                            Button { text: "Run custom vibration"; clicked => { root.test_adv_vibration(root.adv_l/100, root.adv_r/100, root.adv_duration); } }
+                        }
+                        VerticalLayout {
+                            horizontal-stretch: 1; spacing: 9px;
+                            Text { text: "Rumble presets"; color: #e5c07b; font-size: 13px; font-weight: 800; }
+                            Button { text: "Heavy"; clicked => { root.test_vibration(0); } }
+                            Button { text: "Light"; clicked => { root.test_vibration(1); } }
+                            Button { text: "Burst"; clicked => { root.test_vibration(2); } }
+                            Button { text: "Pulse"; clicked => { root.test_vibration(3); } }
+                            Text { text: root.active_id >= 0 && root.active_info.ff_supported ? "Force feedback reported by backend" : "Force feedback not reported for selected device"; color: root.active_id >= 0 && root.active_info.ff_supported ? #10b981 : #e06c75; font-size: 9px; wrap: word-wrap; }
+                        }
+                    }
+                    Panel {
+                        height: 245px;
+                        VerticalLayout {
+                            padding: 14px; spacing: 10px;
+                            HorizontalLayout {
+                                Text { text: "DualSense Adaptive Triggers"; color: #8b5cf6; font-size: 13px; font-weight: 800; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text { text: root.adaptive_trigger_available ? "READY" : "DUALSENSE ONLY"; color: root.adaptive_trigger_available ? #10b981 : #687483; font-size: 9px; font-weight: 800; vertical-alignment: center; }
+                            }
+                            HorizontalLayout {
+                                spacing: 18px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1; spacing: 7px;
+                                    Button {
+                                        text: root.adaptive_side == 0 ? "Target: LEFT / L2" : root.adaptive_side == 1 ? "Target: RIGHT / R2" : "Target: BOTH";
+                                        enabled: root.adaptive_trigger_available;
+                                        clicked => { root.adaptive_side = root.adaptive_side == 2 ? 0 : root.adaptive_side + 1; }
+                                    }
+                                    Text { text: "Start position  " + Math.round(root.adaptive_start) + "%"; color: #abb2bf; font-size: 9px; }
+                                    Slider { minimum: 0; maximum: 100; value: root.adaptive_start; changed(v) => { root.adaptive_start = v; root.adaptive_end = root.adaptive_end < v ? v : root.adaptive_end; } }
+                                    Text { text: "End position  " + Math.round(root.adaptive_end) + "%"; color: #abb2bf; font-size: 9px; }
+                                    Slider { minimum: 0; maximum: 100; value: root.adaptive_end; changed(v) => { root.adaptive_end = v < root.adaptive_start ? root.adaptive_start : v; } }
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1; spacing: 7px;
+                                    Text { text: "Strength  " + Math.round(root.adaptive_strength) + "%"; color: #e5c07b; font-size: 9px; }
+                                    Slider { minimum: 0; maximum: 100; value: root.adaptive_strength; changed(v) => { root.adaptive_strength = v; } }
+                                    Text { text: "Trigger-vibration frequency  " + Math.round(root.adaptive_frequency); color: #61afef; font-size: 9px; }
+                                    Slider { minimum: 1; maximum: 255; value: root.adaptive_frequency; changed(v) => { root.adaptive_frequency = v; } }
+                                    Text { text: "Feedback and Weapon use 0–255 travel; Trigger Vibration uses the controller's 0–147 physical start range."; color: #687483; font-size: 8px; wrap: word-wrap; }
+                                }
+                                VerticalLayout {
+                                    width: 220px; spacing: 8px;
+                                    Button { text: "Feedback"; enabled: root.adaptive_trigger_available; clicked => { root.set_adaptive_trigger(root.adaptive_side, 1, root.adaptive_start/100, root.adaptive_end/100, root.adaptive_strength/100, root.adaptive_frequency); } }
+                                    Button { text: "Weapon / Breakpoint"; enabled: root.adaptive_trigger_available; clicked => { root.set_adaptive_trigger(root.adaptive_side, 2, root.adaptive_start/100, root.adaptive_end/100, root.adaptive_strength/100, root.adaptive_frequency); } }
+                                    Button { text: "Trigger Vibration"; enabled: root.adaptive_trigger_available; clicked => { root.set_adaptive_trigger(root.adaptive_side, 3, root.adaptive_start/100, root.adaptive_end/100, root.adaptive_strength/100, root.adaptive_frequency); } }
+                                    Button { text: "OFF / Release triggers"; enabled: root.adaptive_trigger_available; clicked => { root.stop_adaptive_triggers(); } }
+                                }
+                            }
+                            Text { text: root.vendor_control_status; color: root.adaptive_trigger_available ? #b8c2cf : #687483; font-size: 9px; wrap: word-wrap; }
+                        }
+                    }
+                }
+            }
+
+            if root.active_view == 4: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 24px; spacing: 20px;
+                    Text { text: "Software Calibration"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                    Text { text: root.active_id >= 0 && !root.active_info.input_available ? "The selected device has no live input endpoint." : "Calibration is saved per controller in HKCU. This build does not write controller NVS/firmware."; color: #e5c07b; font-size: 11px; }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        for step[index] in ["CONNECT", "CENTER", "RANGE", "VERIFY", "COMPLETE"]: Rectangle {
+                            horizontal-stretch: 1; height: 54px; border-radius: 8px; border-width: 1px;
+                            background: root.calib_state >= index ? #15352d : #1b2027;
+                            border-color: root.calib_state >= index ? #10b981 : #30363d;
+                            Text { text: step; color: root.calib_state >= index ? #10b981 : #6f7b8b; font-size: 10px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    Panel {
+                        height: 250px;
+                        VerticalLayout {
+                            padding: 22px; spacing: 12px; alignment: center;
+                            Text {
+                                text: root.calib_state == 0 ? "1. Confirm the controller is connected and selected." :
+                                      root.calib_state == 1 ? "2. Release both sticks and keep them untouched. Center samples are averaged continuously." :
+                                      root.calib_state == 2 ? "3. Rotate both sticks through their full range several times." :
+                                      root.calib_state == 3 ? "4. Verify movement. The next step saves the software profile to Registry." :
+                                      "Calibration profile is active and persisted for this device.";
+                                color: #dce2ea; font-size: 14px; wrap: word-wrap; horizontal-alignment: center;
+                            }
+                            Text { text: root.calib_saved ? "Saved successfully" : "No firmware modification"; color: root.calib_saved ? #10b981 : #61afef; font-size: 12px; font-weight: 800; }
+                            Text { text: root.calib_summary; color: #8b949e; font-size: 10px; wrap: word-wrap; horizontal-alignment: center; }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Button { text: root.calib_state < 4 ? "Next calibration step" : "Profile saved"; enabled: root.active_id >= 0 && root.active_info.input_available && root.calib_state < 4; clicked => { root.next_calibration_step(); } }
+                        Button { text: "Reset wizard"; clicked => { root.run_tool("reset_calib"); } }
+                    }
+                }
+            }
+
+            if root.active_view == 5: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 22px; spacing: 16px;
+                    HorizontalLayout {
+                        VerticalLayout {
+                            Text { text: "Wheel Rotation / Steering Angle"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                            Text { text: "Angle is derived from the semantic steering axis and the configured lock-to-lock range."; color: #8b949e; font-size: 10px; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text { text: root.wheel_source; color: root.wheel_available ? #10b981 : #e06c75; font-size: 10px; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        height: 235px; spacing: 18px;
+                        Panel {
+                            horizontal-stretch: 2;
+                            VerticalLayout {
+                                padding: 20px; spacing: 13px; alignment: center;
+                                Text { text: root.wheel_available ? (Math.round(root.wheel_angle_deg * 10) / 10) + "°" : "N/A"; color: #ffffff; font-size: 42px; font-weight: 800; horizontal-alignment: center; }
+                                Text { text: "Current steering angle"; color: #8b949e; font-size: 11px; horizontal-alignment: center; }
+                                Rectangle {
+                                    horizontal-stretch: 1; height: 22px; background: #11161c; border-radius: 11px; border-width: 1px; border-color: #30363d;
+                                    Rectangle { x: parent.width / 2; width: 1px; height: parent.height; background: #8b949e; }
+                                    Rectangle {
+                                        width: 8px; height: parent.height - 4px; border-radius: 4px; background: #10b981;
+                                        x: 2px + (parent.width - 12px) * ((clamp(-1, root.wheel_raw, 1) + 1) / 2);
+                                        y: 2px;
+                                    }
+                                }
+                                HorizontalLayout {
+                                    horizontal-stretch: 1;
+                                    Text { text: "-" + Math.round(root.wheel_rotation_deg / 2) + "°"; color: #687483; font-size: 9px; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Text { text: "0°"; color: #8b949e; font-size: 9px; }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Text { text: "+" + Math.round(root.wheel_rotation_deg / 2) + "°"; color: #687483; font-size: 9px; }
+                                }
+                            }
+                        }
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 16px; spacing: 8px;
+                                Text { text: "Measurement"; color: #e5c07b; font-size: 13px; font-weight: 800; }
+                                MetricRow { label: "LOCK-TO-LOCK"; value: Math.round(root.wheel_rotation_deg) + "°"; }
+                                MetricRow { label: "RAW NORMALIZED"; value: "" + (Math.round(root.wheel_raw * 10000) / 10000); }
+                                MetricRow { label: "OBSERVED LEFT"; value: Math.round(root.wheel_observed_min * root.wheel_rotation_deg / 2 * 10) / 10 + "°"; }
+                                MetricRow { label: "OBSERVED RIGHT"; value: "+" + Math.round(root.wheel_observed_max * root.wheel_rotation_deg / 2 * 10) / 10 + "°"; }
+                                Button { text: "Set current position as center"; enabled: root.wheel_available; clicked => { root.center_wheel(); } }
+                                Button { text: "Reset observed range"; enabled: root.wheel_available; clicked => { root.reset_wheel_range(); } }
+                            }
+                        }
+                    }
+                    Text { text: "Configured steering lock"; color: #61afef; font-size: 12px; font-weight: 800; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        for deg in [270, 360, 540, 720, 900, 1080, 1440]: Button {
+                            text: deg + "°";
+                            clicked => { root.wheel_rotation_deg = deg; root.set_wheel_rotation(deg); }
+                        }
+                    }
+                    Text { text: "Important: most HID descriptors expose steering position but not the driver's current lock-to-lock setting. Select the same range configured in the wheel driver; it is saved per device in HKCU."; color: #8b949e; font-size: 10px; wrap: word-wrap; }
+                    Panel {
+                        height: 92px;
+                        HorizontalLayout {
+                            padding: 12px; spacing: 8px; alignment: center;
+                            VerticalLayout {
+                                width: 230px; spacing: 3px;
+                                Text { text: "Driver-backed FFB presets"; color: #e5c07b; font-size: 12px; font-weight: 800; }
+                                Text { text: root.active_id >= 0 && root.active_info.ff_supported ? root.active_info.family + " • force-feedback endpoint available" : "No force-feedback endpoint reported"; color: root.active_id >= 0 && root.active_info.ff_supported ? #10b981 : #687483; font-size: 9px; wrap: word-wrap; }
+                            }
+                            Button { text: "Road"; enabled: root.active_id >= 0 && root.active_info.ff_supported; clicked => { root.test_adv_vibration(0.35, 0.18, 1800); } }
+                            Button { text: "ABS"; enabled: root.active_id >= 0 && root.active_info.ff_supported; clicked => { root.test_adv_vibration(0.15, 0.85, 650); } }
+                            Button { text: "Impact"; enabled: root.active_id >= 0 && root.active_info.ff_supported; clicked => { root.test_adv_vibration(1.0, 0.35, 280); } }
+                            Button { text: "Stop"; enabled: root.active_id >= 0 && root.active_info.ff_supported; clicked => { root.stop_vibration(); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                    }
+                    Panel {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            padding: 14px; spacing: 6px;
+                            Text { text: "Wheel / Pedal Semantic Axes"; color: #10b981; font-size: 12px; font-weight: 800; }
+                            for axis[index] in root.semantic_axis_names: SemanticAxisRow { label: axis; value: root.semantic_axis_values[index]; }
+                        }
+                    }
+                }
+            }
+
+            if root.active_view == 6: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 22px; spacing: 16px;
+                    HorizontalLayout {
+                        VerticalLayout {
+                            Text { text: "Sensors & Vendor Telemetry"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                            Text { text: "Telemetry keeps raw protocol samples and also shows physical units where the protocol has a documented scale. Unsafe generic firmware/NVS writes are intentionally not used."; color: #8b949e; font-size: 10px; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Text { text: root.vendor_protocol == "" ? "Generic HID" : root.vendor_protocol; color: #61afef; font-size: 10px; vertical-alignment: center; }
+                    }
+                    HorizontalLayout {
+                        height: 180px; spacing: 16px;
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 15px; spacing: 8px; Text { text: "Power / Firmware"; color: #e5c07b; font-size: 13px; font-weight: 800; } MetricRow { label: "BATTERY"; value: root.battery_text; } MetricRow { label: "SOURCE"; value: root.power_source; } Text { text: root.firmware_detail == "" ? "Firmware identity uses HID release when no vendor feature report exists" : root.firmware_detail; color: #b8c2cf; font-size: 10px; wrap: word-wrap; } } }
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 15px; spacing: 8px; Text { text: "Gyroscope"; color: #8b5cf6; font-size: 13px; font-weight: 800; } MetricRow { label: "X"; value: root.motion_available ? Math.round(root.gyro_dps_x * 100) / 100 + " dps" : "N/A"; } MetricRow { label: "Y"; value: root.motion_available ? Math.round(root.gyro_dps_y * 100) / 100 + " dps" : "N/A"; } MetricRow { label: "Z"; value: root.motion_available ? Math.round(root.gyro_dps_z * 100) / 100 + " dps" : "N/A"; } Text { text: root.motion_available ? "raw: " + root.gyro_x + " / " + root.gyro_y + " / " + root.gyro_z : ""; color: #687483; font-size: 9px; } } }
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 15px; spacing: 8px; Text { text: "Accelerometer"; color: #10b981; font-size: 13px; font-weight: 800; } MetricRow { label: "X"; value: root.motion_available ? Math.round(root.accel_g_x * 1000) / 1000 + " g" : "N/A"; } MetricRow { label: "Y"; value: root.motion_available ? Math.round(root.accel_g_y * 1000) / 1000 + " g" : "N/A"; } MetricRow { label: "Z"; value: root.motion_available ? Math.round(root.accel_g_z * 1000) / 1000 + " g" : "N/A"; } Text { text: root.motion_available ? "raw: " + root.accel_x + " / " + root.accel_y + " / " + root.accel_z : ""; color: #687483; font-size: 9px; } } }
+                    }
+                    HorizontalLayout {
+                        height: 125px; spacing: 16px;
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 15px; spacing: 8px; Text { text: "Touch point 1"; color: root.touch_active ? #10b981 : #61afef; font-size: 12px; font-weight: 800; } Text { text: root.touch1_text; color: #dce2ea; font-size: 11px; wrap: word-wrap; } } }
+                        Panel { horizontal-stretch: 1; VerticalLayout { padding: 15px; spacing: 8px; Text { text: "Touch point 2"; color: root.touch_active ? #10b981 : #61afef; font-size: 12px; font-weight: 800; } Text { text: root.touch2_text; color: #dce2ea; font-size: 11px; wrap: word-wrap; } } }
+                    }
+                    HorizontalLayout {
+                        height: 150px; spacing: 16px;
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 14px; spacing: 7px;
+                                Text { text: "Motion conversion"; color: #61afef; font-size: 12px; font-weight: 800; }
+                                Text { text: root.motion_units; color: #b8c2cf; font-size: 10px; wrap: word-wrap; }
+                                Text { text: "Raw samples remain available in diagnostics export for validation."; color: #687483; font-size: 9px; wrap: word-wrap; }
+                            }
+                        }
+                        Panel {
+                            horizontal-stretch: 2;
+                            VerticalLayout {
+                                padding: 12px; spacing: 6px;
+                                Text { text: "Nintendo HD Rumble"; color: root.nintendo_rumble_available ? #10b981 : #687483; font-size: 12px; font-weight: 800; }
+                                HorizontalLayout { spacing: 8px;
+                                    Button { text: "Left"; enabled: root.nintendo_rumble_available; clicked => { root.nintendo_rumble_side = 0; } }
+                                    Button { text: "Right"; enabled: root.nintendo_rumble_available; clicked => { root.nintendo_rumble_side = 1; } }
+                                    Button { text: "Both"; enabled: root.nintendo_rumble_available; clicked => { root.nintendo_rumble_side = 2; } }
+                                    Text { text: "Amp " + Math.round(root.nintendo_rumble_amp) + "%"; color: #b8c2cf; font-size: 9px; vertical-alignment: center; }
+                                    Slider { value <=> root.nintendo_rumble_amp; minimum: 0; maximum: 100; horizontal-stretch: 1; }
+                                }
+                                HorizontalLayout { spacing: 8px;
+                                    Text { text: "LF " + Math.round(root.nintendo_rumble_low_hz) + " Hz"; color: #b8c2cf; font-size: 9px; vertical-alignment: center; }
+                                    Slider { value <=> root.nintendo_rumble_low_hz; minimum: 41; maximum: 626; horizontal-stretch: 1; }
+                                    Text { text: "HF " + Math.round(root.nintendo_rumble_high_hz) + " Hz"; color: #b8c2cf; font-size: 9px; vertical-alignment: center; }
+                                    Slider { value <=> root.nintendo_rumble_high_hz; minimum: 82; maximum: 1252; horizontal-stretch: 1; }
+                                }
+                                HorizontalLayout { spacing: 8px;
+                                    Button { text: "Play"; enabled: root.nintendo_rumble_available; clicked => { root.set_nintendo_rumble(root.nintendo_rumble_side, root.nintendo_rumble_low_hz, root.nintendo_rumble_high_hz, root.nintendo_rumble_amp); } }
+                                    Button { text: "Stop"; enabled: root.nintendo_rumble_available; clicked => { root.stop_nintendo_rumble(); } }
+                                    Text { text: "Waveform is encoded per Nintendo HD-rumble packet format"; color: #687483; font-size: 9px; vertical-alignment: center; horizontal-stretch: 1; }
+                                }
+                            }
+                        }
+                    }
+                    Panel {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            padding: 15px; spacing: 7px;
+                            HorizontalLayout {
+                                Text { text: "Input transports"; color: #e5c07b; font-size: 12px; font-weight: 800; horizontal-stretch: 1; }
+                                Text { text: root.raw_input_status; color: #10b981; font-size: 9px; vertical-alignment: center; }
+                            }
+                            Text { text: "Vendor control: " + root.vendor_control_status; color: #b8c2cf; font-size: 9px; wrap: word-wrap; }
+                            Text { text: "Direct HID: " + (root.raw_hid_report == "" ? "No report available" : root.raw_hid_report); color: #8b949e; font-size: 9px; wrap: word-wrap; }
+                            Text { text: "WM_INPUT: " + (root.raw_input_report == "" ? "Waiting for a matching Raw Input HID report" : root.raw_input_report); color: #687483; font-size: 9px; wrap: word-wrap; }
+                        }
+                    }
+                }
+            }
+
+            if root.active_view == 7: Panel {
+                vertical-stretch: 1;
+                HorizontalLayout {
+                    padding: 22px; spacing: 18px;
+                    VerticalLayout {
+                        width: 330px; spacing: 10px;
+                        Text { text: "JoyKey Agent"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                        Text { text: "Controller → keyboard mapping selected by foreground process. Key-down remains held until the physical control is released."; color: #8b949e; font-size: 10px; wrap: word-wrap; }
+                        Button {
+                            text: root.joykey_enabled ? "Disable JoyKey startup agent" : "Enable JoyKey startup agent";
+                            clicked => { root.joykey_enabled = !root.joykey_enabled; root.set_joykey_enabled(root.joykey_enabled); }
+                        }
+                        Text { text: root.joykey_enabled ? "ACTIVE • XInput + direct HID background polling" : "DISABLED"; color: root.joykey_enabled ? #10b981 : #e06c75; font-size: 10px; font-weight: 800; }
+                        Rectangle { height: 1px; background: #30363d; }
+                        HorizontalLayout {
+                            Text { text: "Saved Profiles"; color: #e5c07b; font-size: 13px; font-weight: 800; horizontal-stretch: 1; }
+                            Button { text: "Refresh"; clicked => { root.refresh_joy_profiles(); } }
+                        }
+                        ScrollView {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                spacing: 6px;
+                                for profile in root.joy_profiles: Rectangle {
+                                    height: 42px; background: root.joy_process == profile ? #233245 : #1b2027; border-radius: 7px; border-width: 1px; border-color: root.joy_process == profile ? #61afef : #30363d;
+                                    HorizontalLayout {
+                                        padding: 6px; spacing: 6px;
+                                        Text { text: profile; color: #dce2ea; font-size: 10px; font-weight: 700; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                        Button { text: "Load"; clicked => { root.joy_process = profile; root.load_joy_profile(profile); } }
+                                        Button { text: "Delete"; clicked => { root.delete_joy_profile(profile); } }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 1; spacing: 9px;
+                        Text { text: "Process Profile"; color: #e5c07b; font-size: 14px; font-weight: 800; }
+                        Text { text: "Executable name (example: game.exe)"; color: #8b949e; font-size: 9px; }
+                        LineEdit { text <=> root.joy_process; }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Button { text: "Load / New"; clicked => { root.load_joy_profile(root.joy_process); } }
+                            Button { text: "Save"; clicked => { root.save_joy_profile(root.joy_process); } }
+                            Button { text: "Delete"; clicked => { root.delete_joy_profile(root.joy_process); } }
+                        }
+                        Text { text: root.joy_status; color: #61afef; font-size: 10px; wrap: word-wrap; }
+                        Text { text: "Accepted keys: A-Z, 0-9, F1-F24, SPACE, ENTER, ESC, TAB, SHIFT, CTRL, ALT, arrows, HOME/END, PGUP/PGDN, INS/DEL."; color: #687483; font-size: 9px; wrap: word-wrap; }
+                        ScrollView {
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                spacing: 7px;
+                                Text { text: "Standard Controller"; color: #10b981; font-size: 12px; font-weight: 800; }
+                                MappingRow { label: "South (A / Cross / B)"; key_value <=> root.joy_south; }
+                                MappingRow { label: "East (B / Circle / A)"; key_value <=> root.joy_east; }
+                                MappingRow { label: "West (X / Square / Y)"; key_value <=> root.joy_west; }
+                                MappingRow { label: "North (Y / Triangle / X)"; key_value <=> root.joy_north; }
+                                MappingRow { label: "Left shoulder"; key_value <=> root.joy_lb; }
+                                MappingRow { label: "Right shoulder"; key_value <=> root.joy_rb; }
+                                MappingRow { label: "Left trigger L2/LT/ZL"; key_value <=> root.joy_lt; }
+                                MappingRow { label: "Right trigger R2/RT/ZR"; key_value <=> root.joy_rt; }
+                                MappingRow { label: "Start / Options / Plus"; key_value <=> root.joy_start; }
+                                MappingRow { label: "Select / Share / Minus"; key_value <=> root.joy_select; }
+                                MappingRow { label: "Guide / PS / Home"; key_value <=> root.joy_guide; }
+                                MappingRow { label: "Left stick click (L3 / LS)"; key_value <=> root.joy_lthumb; }
+                                MappingRow { label: "Right stick click (R3 / RS)"; key_value <=> root.joy_rthumb; }
+                                MappingRow { label: "Touchpad click"; key_value <=> root.joy_touchpad; }
+                                MappingRow { label: "D-Pad Up"; key_value <=> root.joy_dpad_up; }
+                                MappingRow { label: "D-Pad Down"; key_value <=> root.joy_dpad_down; }
+                                MappingRow { label: "D-Pad Left"; key_value <=> root.joy_dpad_left; }
+                                MappingRow { label: "D-Pad Right"; key_value <=> root.joy_dpad_right; }
+                                Rectangle { height: 1px; background: #30363d; }
+                                Text { text: "Generic HID / Wheel / HOTAS / Panels"; color: #e5c07b; font-size: 12px; font-weight: 800; }
+                                MappingRow { label: "Physical B1"; key_value <=> root.joy_b1; }
+                                MappingRow { label: "Physical B2"; key_value <=> root.joy_b2; }
+                                MappingRow { label: "Physical B3"; key_value <=> root.joy_b3; }
+                                MappingRow { label: "Physical B4"; key_value <=> root.joy_b4; }
+                                MappingRow { label: "Physical B5"; key_value <=> root.joy_b5; }
+                                MappingRow { label: "Physical B6"; key_value <=> root.joy_b6; }
+                                MappingRow { label: "Physical B7"; key_value <=> root.joy_b7; }
+                                MappingRow { label: "Physical B8"; key_value <=> root.joy_b8; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.active_view == 8: Panel {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    padding: 20px; spacing: 14px;
+                    HorizontalLayout {
+                        VerticalLayout {
+                            Text { text: "Input Test / Runtime Diagnostics"; color: #ffffff; font-size: 20px; font-weight: 800; }
+                            Text { text: "Live controller state, event timing and transport reports. Sampling remains in the background runtime worker."; color: #8b949e; font-size: 10px; }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: "Reset statistics"; clicked => { root.run_tool("reset_diag"); } }
+                        Button { text: "Export diagnostics"; clicked => { root.export_diagnostics(); } }
+                    }
+
+                    HorizontalLayout {
+                        height: 145px; spacing: 14px;
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 14px; spacing: 6px;
+                                Text { text: "EVENT TIMING"; color: #10b981; font-size: 12px; font-weight: 800; }
+                                MetricRow { label: "CURRENT"; value: root.current_hz; }
+                                MetricRow { label: "AVERAGE"; value: root.poll_avg_hz > 0 ? (Math.round(root.poll_avg_hz * 10) / 10) + " Hz" : "Idle"; }
+                                MetricRow { label: "MIN / MAX"; value: root.poll_max_hz > 0 ? root.poll_min_hz + " / " + root.poll_max_hz + " Hz" : "N/A"; }
+                                MetricRow { label: "TOTAL EVENTS"; value: root.poll_total_events; }
+                            }
+                        }
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 14px; spacing: 6px;
+                                Text { text: "INTER-EVENT TIMING"; color: #61afef; font-size: 12px; font-weight: 800; }
+                                MetricRow { label: "AVERAGE INTERVAL"; value: root.poll_interval_ms > 0 ? (Math.round(root.poll_interval_ms * 1000) / 1000) + " ms" : "N/A"; }
+                                MetricRow { label: "JITTER (σ)"; value: root.poll_jitter_ms > 0 ? (Math.round(root.poll_jitter_ms * 1000) / 1000) + " ms" : "N/A"; }
+                                MetricRow { label: "BACKEND"; value: root.active_id >= 0 ? root.active_info.backend : "N/A"; }
+                                MetricRow { label: "TRANSPORT"; value: root.active_id >= 0 ? root.active_info.transport : "N/A"; }
+                            }
+                        }
+                        Panel {
+                            horizontal-stretch: 1;
+                            VerticalLayout {
+                                padding: 14px; spacing: 6px;
+                                Text { text: "2D RENDERER"; color: #e5c07b; font-size: 12px; font-weight: 800; }
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Button { text: "Auto"; enabled: root.renderer_preference != "auto"; clicked => { root.set_renderer_preference("auto"); } }
+                                    Button { text: "GPU"; enabled: root.renderer_preference != "gpu"; clicked => { root.set_renderer_preference("gpu"); } }
+                                    Button { text: "CPU"; enabled: root.renderer_preference != "cpu"; clicked => { root.set_renderer_preference("cpu"); } }
+                                }
+                                Text { text: root.renderer_status; color: #b8c2cf; font-size: 9px; wrap: word-wrap; }
+                                Text { text: "Renderer changes are saved to HKCU and applied on the next launch."; color: #687483; font-size: 8px; wrap: word-wrap; }
+                            }
+                        }
+                    }
+
+                    Panel {
+                        height: 82px;
+                        VerticalLayout {
+                            padding: 12px; spacing: 5px;
+                            HorizontalLayout {
+                                Text { text: "POLLING HISTORY • LAST 60 ONE-SECOND WINDOWS"; color: #61afef; font-size: 10px; font-weight: 800; horizontal-stretch: 1; }
+                                Text { text: root.poll_max_hz > 0 ? "peak " + root.poll_max_hz + " Hz" : "waiting for events"; color: #687483; font-size: 9px; }
+                            }
+                            HorizontalLayout {
+                                height: 45px; spacing: 2px;
+                                for hz in root.poll_history: Rectangle {
+                                    horizontal-stretch: 1; background: transparent;
+                                    Rectangle {
+                                        width: parent.width;
+                                        height: root.poll_max_hz > 0 ? parent.height * clamp(0.04, hz / (root.poll_max_hz * 1.0), 1) : 1px;
+                                        y: parent.height - self.height;
+                                        background: #10b981; border-radius: 1px;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Panel {
+                        height: 178px;
+                        VerticalLayout {
+                            padding: 14px; spacing: 7px;
+                            Text { text: "LIVE INPUT"; color: #8b5cf6; font-size: 12px; font-weight: 800; }
+                            Text { text: root.input_axes_summary; color: #dce2ea; font-size: 11px; font-weight: 700; wrap: word-wrap; }
+                            Text { text: "Pressed: " + root.input_pressed; color: root.input_pressed == "None" ? #687483 : #10b981; font-size: 10px; wrap: word-wrap; }
+                            Rectangle { height: 1px; background: #30363d; }
+                            HorizontalLayout {
+                                spacing: 16px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1; spacing: 2px;
+                                    MetricRow { label: "LT MIN / MAX"; value: (Math.round(root.trigger_l_min*1000)/10) + "% / " + (Math.round(root.trigger_l_max*1000)/10) + "%"; }
+                                    MetricRow { label: "LT OBSERVED TRAVEL"; value: (Math.round(root.trigger_l_travel*1000)/10) + "%"; }
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1; spacing: 2px;
+                                    MetricRow { label: "RT MIN / MAX"; value: (Math.round(root.trigger_r_min*1000)/10) + "% / " + (Math.round(root.trigger_r_max*1000)/10) + "%"; }
+                                    MetricRow { label: "RT OBSERVED TRAVEL"; value: (Math.round(root.trigger_r_travel*1000)/10) + "%"; }
+                                }
+                                VerticalLayout {
+                                    width: 150px; spacing: 2px;
+                                    MetricRow { label: "TRIGGER SAMPLES"; value: root.trigger_samples; }
+                                }
+                            }
+                        }
+                    }
+
+                    Panel {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            padding: 14px; spacing: 7px;
+                            HorizontalLayout {
+                                Text { text: "RAW TRANSPORT REPORTS"; color: #e5c07b; font-size: 12px; font-weight: 800; horizontal-stretch: 1; }
+                                Button {
+                                    text: root.raw_capture_paused ? "Resume display" : "Pause display";
+                                    clicked => { root.raw_capture_paused = !root.raw_capture_paused; root.set_raw_capture_paused(root.raw_capture_paused); }
+                                }
+                            }
+                            Text { text: root.raw_input_status; color: #61afef; font-size: 9px; wrap: word-wrap; }
+                            Text { text: "Direct HID: " + (root.raw_hid_report == "" ? "No report available" : root.raw_hid_report); color: #b8c2cf; font-size: 9px; wrap: word-wrap; }
+                            Text { text: "WM_INPUT: " + (root.raw_input_report == "" ? "No report available" : root.raw_input_report); color: #8b949e; font-size: 9px; wrap: word-wrap; }
+                            Text { text: root.export_status; color: #687483; font-size: 8px; wrap: word-wrap; }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                height: 72px; spacing: 4px;
+                HorizontalLayout {
+                    height: 16px;
+                    Text { text: root.renderer_status; color: #61afef; font-size: 9px; font-weight: 700; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text { text: "2D UI • high-rate worker • 60 Hz live input • 30 Hz heavy telemetry"; color: #66717f; font-size: 9px; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 50px; spacing: 8px; alignment: center;
+                    ToolButton { text: "DASHBOARD"; subtext: "Live + Raw"; active: root.active_view == 0; clicked => { root.active_view = 0; } }
+                ToolButton { text: "DRIFT"; subtext: "Noise + DZ"; active: root.active_view == 1; clicked => { root.active_view = 1; } }
+                ToolButton { text: "CIRCULARITY"; subtext: "Quadrants"; active: root.active_view == 2; clicked => { root.active_view = 2; } }
+                ToolButton { text: "VIBRATION"; subtext: "Dual Motor"; active: root.active_view == 3; clicked => { root.active_view = 3; } }
+                ToolButton { text: "CALIBRATION"; subtext: "Per Device"; active: root.active_view == 4; clicked => { root.active_view = 4; } }
+                ToolButton { text: "WHEEL"; subtext: "Angle + Range"; active: root.active_view == 5; clicked => { root.active_view = 5; } }
+                ToolButton { text: "SENSORS"; subtext: "IMU + Touch"; active: root.active_view == 6; clicked => { root.active_view = 6; } }
+                    ToolButton { text: "JOYKEY"; subtext: "Per Process"; active: root.active_view == 7; clicked => { root.active_view = 7; } }
+                    ToolButton { text: "INPUT TEST"; subtext: "Timing + Raw"; active: root.active_view == 8; clicked => { root.active_view = 8; } }
+                }
+            }
+        }
+    }
+}
